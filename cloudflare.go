@@ -39,7 +39,7 @@ func (b *BitBuffer) Finalize() {
 	b.tw = 0
 }
 
-func DecodeScript(doc *goquery.Document) string {
+func DecodeScript(doc *goquery.Document) []string {
 	script := doc.Find("script").First().Text()
 	crypto := regexp.MustCompile(".='.*';.=.\\.length;").FindString(script)
 	crypto = crypto[8 : len(crypto)-13]
@@ -56,10 +56,17 @@ func DecodeScript(doc *goquery.Document) string {
 		buf.Write(c)
 	}
 	buf.Finalize()
-	return regexp.MustCompile("\\s+").ReplaceAllString(strings.Replace(string(buf.Buffer), "\\", "", -1), "")
+	return regexp.MustCompile(".{1,15}=").Split(
+		strings.Replace(
+			regexp.MustCompile("\\s+").ReplaceAllString(
+				strings.Replace(string(buf.Buffer), "\\", "", -1), "",
+			),
+			";location.reload();", "", 1),
+		-1)[1:]
 }
 
-func GetCookieValue(splits []string) (val string) {
+func GetCookieValue(s string) (val string) {
+	splits := strings.Split(s, "+")
 	for _, split := range splits {
 		if split == "" || split == "\"\"" || split == "''" ||
 			split == "=" || regexp.MustCompile("[.\"']+").FindString(split) == "" {
