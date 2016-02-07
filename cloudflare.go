@@ -56,7 +56,7 @@ func DecodeScript(doc *goquery.Document) []string {
 		buf.Write(c)
 	}
 	buf.Finalize()
-	return regexp.MustCompile(".{1,15}=").Split(
+	return regexp.MustCompile("[a-zA-Z]{1,15}=").Split(
 		strings.Replace(
 			regexp.MustCompile("\\s+").ReplaceAllString(
 				strings.Replace(string(buf.Buffer), "\\", "", -1), "",
@@ -119,6 +119,56 @@ func GetCookieValue(s string) (val string) {
 	return
 }
 
-func GetCookieKey(splits []string) (key string) {
+func GetCookieKey(s string) (key string) {
+	splits := strings.Split(s, "+")
+	for _, split := range splits {
+		if split == "" || split == "\"\"" || split == "''" ||
+			split == "=" || regexp.MustCompile("[.\"']+").FindString(split) == "" {
+			continue
+		}
+		switch {
+		case regexp.MustCompile("(\"|').+(\"|')\\.(charAt|substr|slice)\\([,0-9]+\\)").MatchString(split):
+			str := regexp.MustCompile("(\"|').+(\"|')").FindString(split)
+			str = str[1 : len(str)-1]
+			f := regexp.MustCompile("(charAt|substr|slice)").FindString(split)
+			arg := regexp.MustCompile("\\([,0-9]+\\)").FindString(split)
+			arg = arg[1 : len(arg)-1]
+			switch f {
+			case "charAt":
+				i, _ := strconv.Atoi(arg)
+				key += str[i : i+1]
+			case "substr":
+				args := strings.Split(arg, ",")
+				start, _ := strconv.Atoi(args[0])
+				length, _ := strconv.Atoi(args[1])
+				key += str[start : start+length]
+			case "slice":
+				args := strings.Split(arg, ",")
+				start, _ := strconv.Atoi(args[0])
+				end, _ := strconv.Atoi(args[1])
+				key += str[start:end]
+			}
+		case len(split) >= 19 && split[:19] == "String.fromCharCode":
+			char := split[20 : len(split)-1]
+			if char[:2] == "0x" {
+				v, err := hex.DecodeString(char[2:4])
+				if err != nil {
+					fmt.Printf("Error: %v (%s)", err, split)
+				} else {
+					key += string(v[0])
+				}
+			} else {
+				v, err := strconv.Atoi(char)
+				if err != nil {
+					fmt.Printf("Error: %v (%s)", err, split)
+				} else {
+					key += string(v)
+				}
+			}
+		case len(split) == 3 && split[0] == split[2] &&
+			(split[0:1] == "\"" || split[0:1] == "'"):
+			key += split[1:2]
+		}
+	}
 	return
 }
