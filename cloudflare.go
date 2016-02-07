@@ -166,7 +166,7 @@ func GetCookieKey(s string) (key string) {
 				}
 			}
 		case len(split) == 3 && split[0] == split[2] &&
-			(split[0:1] == "\"" || split[0:1] == "'"):
+			(split[0:1] == "\"" || split[0:1] == "'") && split[1:2] != "=":
 			key += split[1:2]
 		}
 	}
